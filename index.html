@@ -38,6 +38,13 @@
         .dark-mode .leaflet-bar button { background-color: var(--surface-color) !important; border-bottom-color: #4a6fa5; }
         .dark-mode .leaflet-bar button:hover { background-color: #3e5a81 !important; }
         .leaflet-bar button svg { color: var(--text-color); width: 20px; height: 20px; }
+        
+        /* Tombol Start */
+        .leaflet-control-start button {
+            background-color: #28a745 !important; color: white !important; font-weight: bold; font-size: 1.1em;
+            width: auto; height: 44px; padding: 0 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .leaflet-control-start button:hover { background-color: #218838 !important; }
 
         #stats-container { position: fixed; bottom: 0; left: 0; right: 0; background-color: var(--surface-color); padding: 10px 15px; box-shadow: 0 -2px 10px var(--shadow-color); z-index: 1000; transform: translateY(100%); transition: transform 0.4s ease-in-out; }
         #stats-container.visible { transform: translateY(0); }
@@ -85,6 +92,7 @@
 
             function calculateDistance(coords) { return coords.reduce((t, p, i) => t + (i > 0 ? map.distance(p, coords[i-1]) : 0), 0) / 1000; }
             
+            let finishCoords;
             const routeLayers = L.featureGroup();
             const geoJsonLayer = L.geoJSON(geojsonData, {
                 style: f => ({ color: f.properties.stroke || '#3388ff', weight: 5, opacity: 0.8, fillOpacity: 0.2 }),
@@ -99,7 +107,12 @@
                     }
                     if (f.properties.note) l.bindPopup(`<b>${f.properties.name}</b><p>${f.properties.note}</p>`);
                 },
-                pointToLayer: (f, l) => L.marker(l, { icon: (f.properties.name?.startsWith('START') || f.properties.name?.startsWith('FINISH')) ? new L.Icon.Default() : L.divIcon({ className: 'c-div-icon', html: `<div style="background-color:${f.properties['marker-color']};width:15px;height:15px;border-radius:50%;border:2px solid white;"></div>` }) })
+                pointToLayer: (f, l) => {
+                    if (f.properties.name?.startsWith('FINISH')) {
+                        finishCoords = l;
+                    }
+                    return L.marker(l, { icon: (f.properties.name?.startsWith('START') || f.properties.name?.startsWith('FINISH')) ? new L.Icon.Default() : L.divIcon({ className: 'c-div-icon', html: `<div style="background-color:${f.properties['marker-color']};width:15px;height:15px;border-radius:50%;border:2px solid white;"></div>` }) });
+                }
             }).addTo(map);
             
             const totalRouteDistance = routeLayers.getLayers().reduce((t, l) => t + calculateDistance(l.getLatLngs()), 0);
@@ -113,11 +126,6 @@
             L.Control.CustomButtons = L.Control.extend({
                 onAdd: function() {
                     const c = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-                    const locateBtn = L.DomUtil.create('button', '', c);
-                    locateBtn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>`;
-                    locateBtn.title = 'Cari lokasi saya';
-                    L.DomEvent.on(locateBtn, 'click', () => map.locate({setView: true, maxZoom: 18, enableHighAccuracy: true}));
-
                     const homeBtn = L.DomUtil.create('button', '', c);
                     homeBtn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8h5z"/></svg>`;
                     homeBtn.title = 'Kembali ke tampilan awal';
@@ -135,7 +143,7 @@
             });
             new L.Control.CustomButtons({ position: 'topleft' }).addTo(map);
 
-            let userMarker, watcherId, lastPos, totalActualDist = 0, maxOnRouteDist = 0, timerInterval, elapsedSeconds = 0;
+            let userMarker, watcherId, lastPos, totalActualDist = 0, maxOnRouteDist = 0, timerInterval, elapsedSeconds = 0, activityFinished = false;
             const statsUi = {
                 container: document.getElementById('stats-container'),
                 traveled: document.getElementById('distance-traveled'),
@@ -146,10 +154,30 @@
                 shareBtn: document.getElementById('share-button')
             };
             const fullRoutePolyline = L.polyline(routeLayers.getLayers().flatMap(l => l.getLatLngs()));
+            
+            let startControl;
+            function createStartControl() {
+                L.Control.Start = L.Control.extend({
+                    onAdd: function() {
+                        const c = L.DomUtil.create('div', 'leaflet-control-start leaflet-control');
+                        const btn = L.DomUtil.create('button', '', c);
+                        btn.innerHTML = "MULAI JELAJAH";
+                        L.DomEvent.on(btn, 'click', () => {
+                            map.locate({setView: true, maxZoom: 18, enableHighAccuracy: true});
+                            if(startControl) map.removeControl(startControl);
+                        });
+                        return c;
+                    }
+                });
+                startControl = new L.Control.Start({ position: 'bottomleft' });
+                map.addControl(startControl);
+            }
+            createStartControl();
 
             map.on('locationfound', e => {
-                statsUi.container.classList.add('visible');
                 if (!watcherId) {
+                    statsUi.container.classList.add('visible');
+                    map.panBy([0, -statsUi.container.offsetHeight / 2], { animate: true });
                     startTimer();
                     watcherId = navigator.geolocation.watchPosition(
                         pos => updateProgress(L.latLng(pos.coords.latitude, pos.coords.longitude)), 
@@ -171,6 +199,7 @@
             }
 
             function updateProgress(userLatlng) {
+                if (activityFinished || !finishCoords) return;
                 if (!userMarker) userMarker = L.marker(userLatlng).addTo(map).bindPopup('Posisi Anda');
                 else userMarker.setLatLng(userLatlng);
 
@@ -190,16 +219,23 @@
                 }
                 
                 maxOnRouteDist = Math.max(maxOnRouteDist, currentOnRouteProgress);
-                
                 const onRouteDistKm = maxOnRouteDist / 1000;
                 statsUi.traveled.textContent = `${onRouteDistKm.toFixed(2)} km`;
                 statsUi.remaining.textContent = `${Math.max(0, totalRouteDistance - onRouteDistKm).toFixed(2)} km`;
                 statsUi.actual.textContent = `${(totalActualDist / 1000).toFixed(2)} km`;
                 statsUi.progress.style.width = `${Math.min(100, (onRouteDistKm / totalRouteDistance) * 100)}%`;
+
+                if (userLatlng.distanceTo(finishCoords) < 25) {
+                    activityFinished = true;
+                    if(watcherId) navigator.geolocation.clearWatch(watcherId);
+                    if(timerInterval) clearInterval(timerInterval);
+                    alert("Selamat! Anda telah mencapai titik finish.");
+                    createStartControl();
+                }
             }
 
             statsUi.shareBtn.addEventListener('click', () => {
-                const date = new Date().toLocaleDateString('id-ID');
+                const date = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
                 const time = statsUi.time.textContent;
                 const distOnRoute = statsUi.traveled.textContent;
                 const distActual = statsUi.actual.textContent;
