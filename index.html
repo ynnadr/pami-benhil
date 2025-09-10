@@ -118,7 +118,7 @@
 
             let initialBounds = routeLayers.getBounds().pad(0.15);
             map.fitBounds(initialBounds);
-            setTimeout(() => { routeLayers.snakeIn({ snakingSpeed: 120 }); }, 1000); // Animasi sedikit dilambatkan
+            setTimeout(() => { routeLayers.snakeIn({ snakingSpeed: 40 }); }, 1000); // Nilai lebih rendah = animasi lebih lambat
 
             L.Control.CustomButtons = L.Control.extend({
                 onAdd: function() {
@@ -154,7 +154,7 @@
 
             map.on('locationfound', (e) => {
                 statsContainer.classList.add('visible');
-                updateProgress(e.latlng); // Update progress on first find
+                updateProgress(e.latlng);
                 if (!locationWatcherId) locationWatcherId = navigator.geolocation.watchPosition(pos => updateProgress(L.latLng(pos.coords.latitude, pos.coords.longitude)), handleLocationError, { enableHighAccuracy: true });
             });
 
