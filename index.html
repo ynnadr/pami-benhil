@@ -52,8 +52,7 @@
         #share-button { display: flex; align-items: center; justify-content: center; width: 100%; padding: 10px; margin-top: 10px; border: none; background-color: #25D366; color: white; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 1em; }
         #share-button svg { width: 20px; height: 20px; margin-right: 8px; }
 
-        /* Sembunyikan elemen statistik di awal */
-        .stats-grid, #share-button { display: none; }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
@@ -65,21 +64,21 @@
     </div>
     <div id="map"></div>
     <div id="stats-container">
-        <!-- Tombol Start ada di sini, terlihat di awal -->
         <button id="start-button">MULAI JELAJAH</button>
 
-        <!-- Elemen ini baru akan terlihat setelah start -->
-        <div class="stats-grid">
-            <div>Waktu Tempuh: <span id="elapsed-time">00:00:00</span></div>
-            <div id="total-actual-distance">Total Aktual: <span id="actual-distance">0.00 km</span></div>
-            <div>Ditempuh (di rute): <span id="distance-traveled">0.00 km</span></div>
-            <div>Sisa (di rute): <span id="distance-remaining">0.00 km</span></div>
-            <div id="progress-bar-container"><div id="progress-bar"></div></div>
+        <div id="stats-view" class="hidden">
+            <div class="stats-grid">
+                <div>Waktu Tempuh: <span id="elapsed-time">00:00:00</span></div>
+                <div id="total-actual-distance">Total Aktual: <span id="actual-distance">0.00 km</span></div>
+                <div>Ditempuh (di rute): <span id="distance-traveled">0.00 km</span></div>
+                <div>Sisa (di rute): <span id="distance-remaining">0.00 km</span></div>
+                <div id="progress-bar-container"><div id="progress-bar"></div></div>
+            </div>
+            <button id="share-button">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 12c0 1.76.46 3.43 1.29 4.9l-1.42 5.17 5.29-1.39c1.41.78 2.99 1.21 4.65 1.21 5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2zM7.82 16.4c-.22-.4-.46-.42-.68-.42-.19 0-.43.03-.66.03-.26 0-.68.12-.99.38-.33.26-.99.98-1.21 1.68-.22.7-.22 1.39.05 2.02.26.63.99 1.59 1.96 2.56.98.98 2.23 2.01 3.82 2.63 1.59.63 2.91.56 3.99.33.98-.22 2.23-1.42 2.56-2.67.33-1.25.33-2.32.22-2.56-.11-.22-.43-.33-.91-.56-.48-.22-2.23-1.1-2.56-1.21-.33-.11-.63-.16-.91.16-.28.33-.99 1.21-1.21 1.45-.22.26-.43.28-.78.11-.33-.16-1.59-.58-3.02-1.85-.98-.88-1.74-1.96-1.96-2.32-.22-.35-.01-.56.16-.73.16-.16.33-.43.48-.63.16-.22.22-.35.33-.58.11-.22 0-.43-.05-.53-.05-.11-.88-2.12-1.21-2.91-.3-.78-.6-.68-.81-.68z"/></svg>
+                Kirim Data ke WA
+            </button>
         </div>
-        <button id="share-button">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 12c0 1.76.46 3.43 1.29 4.9l-1.42 5.17 5.29-1.39c1.41.78 2.99 1.21 4.65 1.21 5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2zM7.82 16.4c-.22-.4-.46-.42-.68-.42-.19 0-.43.03-.66.03-.26 0-.68.12-.99.38-.33.26-.99.98-1.21 1.68-.22.7-.22 1.39.05 2.02.26.63.99 1.59 1.96 2.56.98.98 2.23 2.01 3.82 2.63 1.59.63 2.91.56 3.99.33.98-.22 2.23-1.42 2.56-2.67.33-1.25.33-2.32.22-2.56-.11-.22-.43-.33-.91-.56-.48-.22-2.23-1.1-2.56-1.21-.33-.11-.63-.16-.91.16-.28.33-.99 1.21-1.21 1.45-.22.26-.43.28-.78.11-.33-.16-1.59-.58-3.02-1.85-.98-.88-1.74-1.96-1.96-2.32-.22-.35-.01-.56.16-.73.16-.16.33-.43.48-.63.16-.22.22-.35.33-.58.11-.22 0-.43-.05-.53-.05-.11-.88-2.12-1.21-2.91-.3-.78-.6-.68-.81-.68z"/></svg>
-            Laporkan Pencapaian
-        </button>
     </div>
 
     <script>
@@ -146,15 +145,14 @@
 
             let userMarker, watcherId, lastPos, totalActualDist = 0, maxOnRouteDist = 0, timerInterval, elapsedSeconds = 0, activityFinished = false;
             const statsUi = {
-                container: document.getElementById('stats-container'),
-                statsGrid: document.querySelector('.stats-grid'),
-                shareButton: document.getElementById('share-button'),
+                statsView: document.getElementById('stats-view'),
                 startButton: document.getElementById('start-button'),
                 traveled: document.getElementById('distance-traveled'),
                 remaining: document.getElementById('distance-remaining'),
                 actual: document.getElementById('actual-distance'),
                 progress: document.getElementById('progress-bar'),
-                time: document.getElementById('elapsed-time')
+                time: document.getElementById('elapsed-time'),
+                shareBtn: document.getElementById('share-button')
             };
             const fullRoutePolyline = L.polyline(routeLayers.getLayers().flatMap(l => l.getLatLngs()));
             
@@ -164,11 +162,12 @@
 
             map.on('locationfound', e => {
                 if (!watcherId) {
-                    statsUi.startButton.style.display = 'none';
-                    statsUi.statsGrid.style.display = 'grid';
-                    statsUi.shareButton.style.display = 'flex';
+                    statsUi.startButton.classList.add('hidden');
+                    statsUi.statsView.classList.remove('hidden');
                     
-                    map.panBy([0, -statsUi.container.offsetHeight / 2], { animate: true });
+                    const statsContainerHeight = document.getElementById('stats-container').offsetHeight;
+                    map.panBy([0, -statsContainerHeight], { animate: true }); // Geser peta ke atas
+                    
                     startTimer();
                     watcherId = navigator.geolocation.watchPosition(
                         pos => updateProgress(L.latLng(pos.coords.latitude, pos.coords.longitude)), 
@@ -222,9 +221,8 @@
                     if(timerInterval) clearInterval(timerInterval);
                     alert("Selamat! Anda telah mencapai titik finish.");
                     
-                    statsUi.startButton.style.display = 'block';
-                    statsUi.statsGrid.style.display = 'none';
-                    statsUi.shareButton.style.display = 'none';
+                    statsUi.startButton.classList.remove('hidden');
+                    statsUi.statsView.classList.add('hidden');
                 }
             }
 
