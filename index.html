@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>PAMI Thursday Walk - Karet Bivak</title>
+    
+    <!-- Library Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Plugin Leaflet untuk Animasi & Kalkulasi -->
+    <script src="https://unpkg.com/leaflet.polylinemeasure/Leaflet.PolylineMeasure.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.snakeanim@0.2.0/L.Polyline.SnakeAnim.js"></script>
+
+    <style>
+        /* === Variabel Tema (untuk Mode Terang & Gelap) === */
+        :root {
+            --bg-color: #f8f8f8;
+            --text-color: #2c3e50;
+            --subtext-color: #7f8c8d;
+            --accent-color: #e67e22;
+            --surface-color: #ffffff;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+        }
+
+        body.dark-mode {
+            --bg-color: #1a1a1a;
+            --text-color: #ecf0f1;
+            --subtext-color: #95a5a6;
+            --accent-color: #f39c12;
+            --surface-color: #2c3e50;
+            --shadow-color: rgba(0, 0, 0, 0.4);
+        }
+
+        /* === Gaya Dasar === */
+        html { scroll-behavior: smooth; }
+        body {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 0;
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* === Halaman Pembuka (Splash Screen) === */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 20000;
+            opacity: 1;
+            transition: opacity 0.8s ease-out;
+        }
+        #splash-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #splash-screen img {
+            animation: fadeInScale 1.5s ease-out forwards;
+        }
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* === Header === */
+        #header {
+            background-color: var(--surface-color);
+            padding: 15px 10px;
+            text-align: center;
+            box-shadow: 0 2px 5px var(--shadow-color);
+            z-index: 1000;
+            flex-shrink: 0;
+            transition: background-color 0.3s;
+        }
+        #header h1 { margin: 0 0 5px 0; font-size: 1.4em; color: var(--text-color); }
+        #header p { margin: 0 0 3px 0; font-size: 0.9em; color: var(--subtext-color); }
+        #totalRouteLength { font-weight: bold; color: var(--accent-color); }
+        
+        /* === Peta === */
+        #map {
+            flex-grow: 1;
+            width: 100vw;
+            z-index: 1;
+        }
+        .dark-mode .leaflet-tile-pane {
+            filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+        }
+
+        /* === Kontrol Peta (Tombol) === */
+        .leaflet-bar button {
+            background-color: var(--surface-color);
+            width: 36px;
+            height: 36px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid #ddd;
+        }
+        .leaflet-bar button:hover { background-color: #f4f4f4; }
+        .dark-mode .leaflet-bar button {
+            background-color: var(--surface-color);
+            border-bottom: 1px solid #4a6fa5;
+        }
+        .dark-mode .leaflet-bar button:hover { background-color: #3e5a81; }
+        .leaflet-bar button svg {
+            color: var(--text-color);
+            width: 20px;
+            height: 20px;
+        }
+
+        /* === Panel Statistik & Progress Bar === */
+        #stats-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: var(--surface-color);
+            color: var(--text-color);
+            padding: 10px 15px;
+            box-shadow: 0 -2px 10px var(--shadow-color);
+            z-index: 1000;
+            transform: translateY(100%);
+            transition: transform 0.4s ease-in-out;
+        }
+        #stats-container.visible {
+            transform: translateY(0);
+        }
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+            margin-bottom: 8px;
+        }
+        .stats-row span { font-weight: bold; }
+        #progress-bar-container {
+            width: 100%;
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            height: 10px;
+            overflow: hidden;
+        }
+        .dark-mode #progress-bar-container { background-color: #555; }
+        #progress-bar {
+            width: 0%;
+            height: 100%;
+            background-color: var(--accent-color);
+            border-radius: 10px;
+            transition: width 0.5s linear;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Halaman Pembuka -->
+    <div id="splash-screen">
+        <img src="images/logo.png" alt="Logo Kegiatan" width="150" height="131">
+    </div>
+
+    <!-- Header Aplikasi -->
+    <div id="header">
+        <h1>PAMI Thursday Walk</h1>
+        <p>11 September 2025 - Start at 7:30am</p>
+        <p>Total route (est): <span id="totalRouteLength">Menghitung...</span> km.</p>
+    </div>
+    
+    <!-- Kontainer Peta -->
+    <div id="map"></div>
+
+    <!-- Panel Statistik & Progress Bar (Awalnya tersembunyi) -->
+    <div id="stats-container">
+        <div class="stats-row">
+            <div>Ditempuh: <span id="distance-traveled">0.00 km</span></div>
+            <div>Sisa: <span id="distance-remaining">0.00 km</span></div>
+        </div>
+        <div id="progress-bar-container">
+            <div id="progress-bar"></div>
+        </div>
+    </div>
+
+    <script>
+        // Data GeoJSON lengkap
+        const geojsonData = {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"Pintu belakang TPU Karet Bivak","marker-color":"#ff0000"},"geometry":{"type":"Point","coordinates":[106.813687,-6.20465]}},{"type":"Feature","properties":{"name":"Rute 3","stroke":"#808000","stroke-width":5},"geometry":{"type":"LineString","coordinates":[[106.815989,-6.200866],[106.81516,-6.200669],[106.815189,-6.201403],[106.815307,-6.201449],[106.815404,-6.201531],[106.815465,-6.201641],[106.815999,-6.203356],[106.815773,-6.203378],[106.815561,-6.203375]]}},{"type":"Feature","properties":{"name":"Gerbang TPU Karet Bivak","marker-color":"#ff0000"},"geometry":{"type":"Point","coordinates":[106.815669,-6.203325]}},{"type":"Feature","properties":{"name":"FINISH: Stasiun Karet"},"geometry":{"type":"Point","coordinates":[106.816026,-6.200878]}},{"type":"Feature","properties":{"name":"Rute 2","stroke":"#b88e65","stroke-width":5},"geometry":{"type":"LineString","coordinates":[[106.813702,-6.204638],[106.813805,-6.205341],[106.81363,-6.205367],[106.813738,-6.206453],[106.812156,-6.206538],[106.81215,-6.206786],[106.811999,-6.206782],[106.811852,-6.206801],[106.811719,-6.206833],[106.81159,-6.206861],[106.811455,-6.206935],[106.811597,-6.20718],[106.811888,-6.207555],[106.812000,-6.207673],[106.812054,-6.207826],[106.81209,-6.207919],[106.812121,-6.208186],[106.812658,-6.20874],[106.812383,-6.208797],[106.812039,-6.208974],[106.811854,-6.208704]]}},{"type":"Feature","properties":{"name":"Rute 1","stroke":"#ffd700","stroke-width":5},"geometry":{"type":"LineString","coordinates":[[106.811846,-6.208722],[106.811903,-6.208787],[106.812029,-6.208984],[106.812096,-6.209147],[106.812267,-6.209681],[106.812302,-6.209877],[106.812332,-6.210125],[106.812331,-6.21057],[106.812264,-6.211546],[106.812245,-6.21192],[106.811124,-6.212038],[106.811207,-6.213286],[106.811252,-6.213486],[106.811628,-6.214192],[106.8118,-6.214465],[106.812013,-6.214925],[106.812169,-6.215214],[106.812159,-6.215244],[106.812138,-6.215271],[106.812106,-6.215299],[106.812254,-6.215982],[106.813337,-6.215834],[106.813581,-6.216337],[106.813604,-6.216368],[106.813658,-6.216408],[106.81367,-6.21642],[106.813408,-6.216633]]}},{"type":"Feature","properties":{"name":"START: Taman Sentra BRI"},"geometry":{"type":"Point","coordinates":[106.813538,-6.216808]}},{"type":"Feature","properties":{"name":"Jakarta Notebook","marker-color":"#ff0000"},"geometry":{"type":"Point","coordinates":[106.811764,-6.208786]}},{"type":"Feature","properties":{"name":"TPU Karet Bivak","stroke":"#555555","stroke-width":2,"fill":"#555555","fill-opacity":0.5,"note":"Area TPU Karet Bivak."},"geometry":{"type":"Polygon","coordinates":[[[106.81549,-6.203305],[106.8155,-6.202681],[106.815336,-6.201996],[106.815233,-6.201731],[106.815099,-6.201639],[106.814904,-6.201567],[106.813855,-6.201444],[106.813454,-6.201455],[106.811562,-6.201649],[106.811459,-6.202047],[106.811531,-6.202201],[106.811747,-6.202303],[106.811922,-6.202395],[106.812004,-6.202773],[106.811891,-6.203366],[106.811912,-6.20353],[106.811984,-6.203683],[106.811994,-6.203816],[106.812045,-6.203949],[106.81223,-6.204082],[106.812487,-6.204235],[106.812971,-6.204358],[106.813495,-6.204409],[106.814122,-6.204419],[106.81477,-6.204358],[106.815696,-6.204317],[106.81549,-6.203305]]]}}]};
+
+        // --- INISIALISASI APLIKASI ---
+        document.addEventListener('DOMContentLoaded', function() {
+            
+            // Sembunyikan Splash Screen setelah 3 detik
+            setTimeout(() => {
+                document.getElementById('splash-screen').classList.add('hidden');
+            }, 3000);
+
+            // Inisialisasi Peta
+            const map = L.map('map');
+            const lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' });
+            lightTiles.addTo(map);
+
+            // --- IKON KUSTOM ---
+            const startIcon = L.icon({
+                iconUrl: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSJjdXJyZW50Q29yIj48cGF0aCBkPSJNMTEuMSAyMGMwIC41LS40IDEtMSAxSDQuNWMtLjYgMC0xLS40LTEtMXYtNUg0Yy0uNiAwLTEtLjQtMS0xVjRjMC0uNi40LTEgMS0xaDYuNWMuNSAwIC45LjUgLjkgMXY2aC0uM2MtLjYgMC0xIC41LTEgMS4xVjIwem0tMS4yLTcuNmMwLS40LjQtLjcuOC0uN2g1LjRjLjQgMCAuOC4zLjguN3Y1LjRjMCAuNC0uMy44LS43LjhoLTUuNGMtLjQgMC0uOC0uNC0uOC0uOHYtNS40ek0xNCA2aDJ2MmgtMlY2em0zIDBoMnYyaC0yVjZ6bTAgM2gydjJoLTJWOXptMCAzaDJ2MmgtMlYxMnptLTMgMGgydjJoLTJWMTJ6bS0zIDBoMnYyaC0yVjEyek04IDloMnYyaC0yVjl6bTAgM2gydjJoLTJWMTJ6TTggNmgydjJoLTJWNnoiLz48L3N2Zz4=',
+                iconSize: [38, 38], iconAnchor: [10, 37], popupAnchor: [0, -38]
+            });
+            const finishIcon = L.icon({
+                iconUrl: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSJjdXJyZW50Q29yIj48cGF0aCBkPSJNMTEuMSA5LjVWNGMwLS41LjQtMSAuOS0xaDYuNWMuNSAwIC45LjQuOS45VjEzaC0uN2MtLjUgMC0uOS40LS45Ljl2NS4yYzAgLjUtLjQuOS0uOS45SDQuNWMtLjUgMC0uOS0uNC0uOS0uOVYxM2MwLS41LjQtLjkuOS0uOWg1di0uMWMwLS41LjQtMSAuOS0xek0xOCAxMHYyaC0yVjhoMnYyem0tMyAwaDJ2MmgtMnYtMnptMyAzaDJ2MmgtMnYtMnptLTYgMGgydjJoLTJ2LTJ6bTMtM2gydjJoLTJ2LTJ6bTAgNmgydjJoLTJ2LTE0aDJ2MnptLTYtNmgydjJoLTJ2LTJ6bTMgMGgydjJoLTJ2LTJ6bS0zLTNoMnYyaC0ydjZIM3YtMmgydjJ6bTYgMGgydjJoLTJ2LTJ6bS02IDNoMnYyaC0ydi0yeiIvPjwvc3ZnPg==',
+                iconSize: [38, 38], iconAnchor: [10, 37], popupAnchor: [0, -38]
+            });
+
+            // --- Fungsi & Logika Peta ---
+            function calculateLineStringLength(c){let t=0;for(let o=0;o<c.length-1;o++){let[e,r]=c[o],[a,n]=c[o+1];t+=map.distance([r,e],[n,a])}return t/1000}
+            
+            let totalRouteDistance = 0;
+            const routeLayers = L.featureGroup();
+            
+            const geoJsonLayer = L.geoJSON(geojsonData,{
+                style:f=>({color:f.properties.stroke||'#3388ff',weight:f.properties['stroke-width']||5,opacity:f.properties['stroke-opacity']||0.8,fillColor:f.properties.fill||'#3388ff',fillOpacity:f.properties['fill-opacity']||0.2}),
+                onEachFeature:(f,l)=>{
+                    if(f.properties.name&&f.properties.name.startsWith('Rute')){routeLayers.addLayer(l);totalRouteDistance+=calculateLineStringLength(f.geometry.coordinates)}
+                    if(f.properties.note){l.bindPopup(`<div style="font-weight:bold">${f.properties.name}</div><p>${f.properties.note}</p>`)}
+                },
+                pointToLayer:(f,l)=>{
+                    const p=f.properties;
+                    if(p.name&&p.name.startsWith('START')){return L.marker(l,{icon:startIcon}).bindTooltip(p.name)}
+                    if(p.name&&p.name.startsWith('FINISH')){return L.marker(l,{icon:finishIcon}).bindTooltip(p.name)}
+                    if(p['marker-color']){const i=L.divIcon({className:'c-div-icon',html:`<div style="background-color:${p['marker-color']};width:15px;height:15px;border-radius:50%;border:2px solid white;"></div>`});return L.marker(l,{icon:i}).bindTooltip(p.name)}
+                    return L.marker(l).bindTooltip(p.name)
+                }
+            }).addTo(map);
+
+            document.getElementById('totalRouteLength').textContent = totalRouteDistance.toFixed(2);
+            document.getElementById('distance-remaining').textContent = `${totalRouteDistance.toFixed(2)} km`;
+
+            let initialBounds;
+            let startCoords, finishCoords;
+            geojsonData.features.forEach(f=>{if(f.properties.name&&f.properties.name.startsWith('START')){startCoords=[f.geometry.coordinates[1],f.geometry.coordinates[0]]}if(f.properties.name&&f.properties.name.startsWith('FINISH')){finishCoords=[f.geometry.coordinates[1],f.geometry.coordinates[0]]}});
+            if(startCoords&&finishCoords){initialBounds = L.latLngBounds([startCoords,finishCoords]).pad(0.15)}else{initialBounds = geoJsonLayer.getBounds().pad(0.1)}
+            map.fitBounds(initialBounds);
+
+            // Terapkan Animasi Garis Rute
+            routeLayers.snakeIn();
+
+            // --- KONTROL KUSTOM (Lokasi, Home, Mode Gelap) ---
+            L.Control.CustomButtons = L.Control.extend({
+                onAdd: function(map) {
+                    const c = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+                    const locateBtn = L.DomUtil.create('button', '', c);
+                    locateBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>';
+                    locateBtn.title = 'Cari lokasi saya';
+                    L.DomEvent.on(locateBtn, 'click', () => map.locate({setView: true, maxZoom: 18, enableHighAccuracy: true}));
+
+                    const homeBtn = L.DomUtil.create('button', '', c);
+                    homeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8h5z"/></svg>';
+                    homeBtn.title = 'Kembali ke tampilan awal';
+                    L.DomEvent.on(homeBtn, 'click', () => {if(initialBounds){map.fitBounds(initialBounds)}});
+
+                    const themeBtn = L.DomUtil.create('button', '', c);
+                    themeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-3.31 0-6-2.69-6-6 0-1.82.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>';
+                    themeBtn.title = 'Ubah Tema';
+                    L.DomEvent.on(themeBtn, 'click', () => {
+                        document.body.classList.toggle('dark-mode');
+                        const isDarkMode = document.body.classList.contains('dark-mode');
+                        themeBtn.innerHTML = isDarkMode 
+                            ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.64 5.64c.39.39 1.02.39 1.41 0s.39-1.02 0-1.41L5.64 2.81c-.39-.39-1.02-.39-1.41 0s-.39 1.02 0 1.41L5.64 5.64zm12.72 12.72c.39.39 1.02.39 1.41 0s.39-1.02 0-1.41l-1.41-1.41c-.39-.39-1.02-.39-1.41 0s-.39 1.02 0 1.41l1.41 1.41zM2.81 18.36c.39.39 1.02.39 1.41 0l1.41-1.41c.39-.39.39-1.02 0-1.41s-1.02-.39-1.41 0L2.81 16.95c-.39.39-.39 1.02 0 1.41zm14.14-14.14c.39.39 1.02.39 1.41 0l1.41-1.41c.39-.39.39-1.02 0-1.41s-1.02-.39-1.41 0L16.95 4.22c-.39.39-.39 1.02 0 1.41z"/></svg>'
+                            : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-3.31 0-6-2.69-6-6 0-1.82.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>';
+                    });
+                    return c;
+                }
+            });
+            new L.Control.CustomButtons({ position: 'topleft' }).addTo(map);
+
+            // --- FUNGSI LOKASI & PROGRESS BAR ---
+            let userMarker, userCircle, locationWatcherId;
+            const statsContainer = document.getElementById('stats-container');
+            const distTraveledEl = document.getElementById('distance-traveled');
+            const distRemainEl = document.getElementById('distance-remaining');
+            const progressBarEl = document.getElementById('progress-bar');
+            
+            let allRoutePoints = [];
+            routeLayers.eachLayer(layer => {
+                const latlngs = layer.getLatLngs();
+                latlngs.forEach(latlng => allRoutePoints.push(latlng));
+            });
+            const fullRoutePolyline = L.polyline(allRoutePoints);
+
+            map.on('locationfound', function(e) {
+                statsContainer.classList.add('visible');
+                if (!locationWatcherId) {
+                    locationWatcherId = navigator.geolocation.watchPosition(updateProgress, handleLocationError, { enableHighAccuracy: true });
+                }
+                updateProgress({ coords: e.coords });
+            });
+
+            function updateProgress(pos) {
+                const userLatlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
+                
+                if (userMarker) {
+                    userMarker.setLatLng(userLatlng);
+                    userCircle.setLatLng(userLatlng).setRadius(pos.coords.accuracy);
+                } else {
+                    userMarker = L.marker(userLatlng).addTo(map).bindPopup('Posisi Anda');
+                    userCircle = L.circle(userLatlng, pos.coords.accuracy).addTo(map);
+                }
+                
+                // Kalkulasi Jarak
+                const closestPointOnRoute = L.GeometryUtil.closest(map, fullRoutePolyline, userLatlng);
+                let distanceTraveled = 0;
+                let pointFound = false;
+
+                for (let i = 0; i < allRoutePoints.length - 1; i++) {
+                    const segmentStart = allRoutePoints[i];
+                    const segmentEnd = allRoutePoints[i+1];
+                    const closestOnSegment = L.GeometryUtil.closest(map, L.polyline([segmentStart, segmentEnd]), userLatlng);
+                    
+                    if (closestOnSegment.equals(closestPointOnRoute)) {
+                        distanceTraveled += map.distance(segmentStart, closestPointOnRoute);
+                        pointFound = true;
+                        break;
+                    } else {
+                        distanceTraveled += map.distance(segmentStart, segmentEnd);
+                    }
+                }
+
+                distanceTraveled /= 1000; // konversi ke km
+                const distanceRemaining = Math.max(0, totalRouteDistance - distanceTraveled);
+                const progressPercentage = Math.min(100, (distanceTraveled / totalRouteDistance) * 100);
+
+                distTraveledEl.textContent = `${distanceTraveled.toFixed(2)} km`;
+                distRemainEl.textContent = `${distanceRemaining.toFixed(2)} km`;
+                progressBarEl.style.width = `${progressPercentage}%`;
+            }
+
+            function handleLocationError(e) {
+                alert(`Error ${e.code}: ${e.message}`);
+                statsContainer.classList.remove('visible');
+                if(locationWatcherId) navigator.geolocation.clearWatch(locationWatcherId);
+                locationWatcherId = null;
+            }
+            map.on('locationerror', handleLocationError);
+        });
+    </script>
+</body>
+</html>
