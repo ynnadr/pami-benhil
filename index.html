@@ -118,7 +118,7 @@
 
             let initialBounds = routeLayers.getBounds().pad(0.15);
             map.fitBounds(initialBounds);
-            setTimeout(() => { routeLayers.snakeIn({ snakingSpeed: 40 }); }, 1000); // Nilai lebih rendah = animasi lebih lambat
+            setTimeout(() => { routeLayers.snakeIn({ snakingSpeed: 10 }); }, 1000); // Nilai lebih rendah = animasi lebih lambat
 
             L.Control.CustomButtons = L.Control.extend({
                 onAdd: function() {
