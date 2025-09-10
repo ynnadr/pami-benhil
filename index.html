@@ -41,12 +41,15 @@
 
         #stats-container { position: fixed; bottom: 0; left: 0; right: 0; background-color: var(--surface-color); padding: 10px 15px; box-shadow: 0 -2px 10px var(--shadow-color); z-index: 1000; transform: translateY(100%); transition: transform 0.4s ease-in-out; }
         #stats-container.visible { transform: translateY(0); }
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 15px; font-size: 0.9em; margin-bottom: 8px; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 15px; font-size: 0.9em; margin-bottom: 8px; }
         .stats-grid div span { font-weight: bold; }
-        #total-physical-distance { text-align: right; color: var(--accent-color); }
-        #progress-bar-container { grid-column: 1 / -1; background-color: #e0e0e0; border-radius: 10px; height: 10px; overflow: hidden; }
+        #total-actual-distance { text-align: right; color: var(--accent-color); }
+        #progress-bar-container { grid-column: 1 / -1; background-color: #e0e0e0; border-radius: 10px; height: 10px; overflow: hidden; margin-top: 4px; }
         .dark-mode #progress-bar-container { background-color: #555; }
         #progress-bar { width: 0%; height: 100%; background-color: var(--accent-color); border-radius: 10px; transition: width 0.5s linear; }
+
+        #share-button { display: flex; align-items: center; justify-content: center; width: 100%; padding: 10px; margin-top: 10px; border: none; background-color: #25D366; color: white; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 1em; }
+        #share-button svg { width: 20px; height: 20px; margin-right: 8px; }
     </style>
 </head>
 <body>
@@ -59,16 +62,22 @@
     <div id="map"></div>
     <div id="stats-container">
         <div class="stats-grid">
+            <div>Waktu Tempuh: <span id="elapsed-time">00:00:00</span></div>
+            <div id="total-actual-distance">Total Aktual: <span id="actual-distance">0.00 km</span></div>
             <div>Ditempuh (di rute): <span id="distance-traveled">0.00 km</span></div>
-            <div id="total-physical-distance">Total Fisik: <span id="physical-distance">0.00 km</span></div>
             <div>Sisa (di rute): <span id="distance-remaining">0.00 km</span></div>
+            <div id="progress-bar-container"><div id="progress-bar"></div></div>
         </div>
-        <div id="progress-bar-container"><div id="progress-bar"></div></div>
+        <button id="share-button">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 12c0 1.76.46 3.43 1.29 4.9l-1.42 5.17 5.29-1.39c1.41.78 2.99 1.21 4.65 1.21 5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2zM7.82 16.4c-.22-.4-.46-.42-.68-.42-.19 0-.43.03-.66.03-.26 0-.68.12-.99.38-.33.26-.99.98-1.21 1.68-.22.7-.22 1.39.05 2.02.26.63.99 1.59 1.96 2.56.98.98 2.23 2.01 3.82 2.63 1.59.63 2.91.56 3.99.33.98-.22 2.23-1.42 2.56-2.67.33-1.25.33-2.32.22-2.56-.11-.22-.43-.33-.91-.56-.48-.22-2.23-1.1-2.56-1.21-.33-.11-.63-.16-.91.16-.28.33-.99 1.21-1.21 1.45-.22.26-.43.28-.78.11-.33-.16-1.59-.58-3.02-1.85-.98-.88-1.74-1.96-1.96-2.32-.22-.35-.01-.56.16-.73.16-.16.33-.43.48-.63.16-.22.22-.35.33-.58.11-.22 0-.43-.05-.53-.05-.11-.88-2.12-1.21-2.91-.3-.78-.6-.68-.81-.68z"/></svg>
+            Laporkan Pencapaian
+        </button>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const geojsonData = {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"Pintu belakang TPU Karet Bivak","marker-color":"#ff0000","marker-size":"medium","marker-symbol":"circle"},"geometry":{"coordinates":[106.81368714559835,-6.204650739325302],"type":"Point"},"id":0},{"type":"Feature","properties":{"name":"Rute 3","stroke":"#808000","stroke-width":5,"stroke-opacity":1},"geometry":{"coordinates":[[106.81598904460952,-6.2008666712409735],[106.81516077125542,-6.2006696427777825],[106.81518941899208,-6.201403005801808],[106.81530759089765,-6.201449285958475],[106.81540427700298,-6.201531166225394],[106.81546515344081,-6.201641526564842],[106.8159999287488,-6.20335621405772],[106.81577311616627,-6.203378809043841],[106.81556183911994,-6.203375249044527]],"type":"LineString"},"id":1},{"type":"Feature","properties":{"name":"Gerbang TPU Karet Bivak","marker-color":"#ff0000","marker-size":"medium","marker-symbol":"circle"},"geometry":{"coordinates":[106.81566926812627,-6.203325409058181],"type":"Point"},"id":2},{"type":"Feature","properties":{"name":"FINISH: Stasiun Karet"},"geometry":{"coordinates":[106.81602600650046,-6.200878073208969],"type":"Point"},"id":3},{"type":"Feature","properties":{"name":"Rute 2","stroke":"#b88e65","stroke-width":5,"stroke-opacity":1},"geometry":{"coordinates":[[106.81370225769962,-6.204638741128861],[106.81380503727996,-6.205341875333843],[106.81363079247507,-6.205367172583422],[106.81373838362902,-6.2064537812743055],[106.81215658425685,-6.206538435857809],[106.81215071212887,-6.206786918669366],[106.81199934616888,-6.206782480366073],[106.81185254041998,-6.2068012891285775],[106.81171922167329,-6.206833168414732],[106.81159012373365,-6.206861816296694],[106.811455201206,-6.206935032631023],[106.81159792975836,-6.207180043760445],[106.81188884562101,-6.20755559114842],[106.81200064696588,-6.207673876729913],[106.81205481220138,-6.207826260749016],[106.8120901059836,-6.207919562440395],[106.81212175987582,-6.208186107094434],[106.81265898375375,-6.208740734250057],[106.81238373494466,-6.208797716183881],[106.81203969134435,-6.208974211946014],[106.81185456108796,-6.208704845099859]],"type":"LineString"},"id":4},{"type":"Feature","properties":{"name":"Rute 1","stroke":"#ffd700","stroke-width":5,"stroke-opacity":1},"geometry":{"coordinates":[[106.81184652605026,-6.208722481690174],[106.81190310782779,-6.2087875285424445],[106.81202929258723,-6.208984001465808],[106.81209675930529,-6.209147848517176],[106.81226710837473,-6.20968116352465],[106.81230240045431,-6.209877031276875],[106.81233287503602,-6.2101258439371065],[106.81233150432729,-6.210570203661192],[106.81226412728597,-6.2115465772018865],[106.81224536598012,-6.211920514814395],[106.81112426507502,-6.212038728593569],[106.81120759190486,-6.213286365157089],[106.81125216070728,-6.213486211712322],[106.81162868236248,-6.214192928190741],[106.81180020802412,-6.214465519869847],[106.81201377752058,-6.214925103653812],[106.8121698122859,-6.215214474008292],[106.81215959669049,-6.215244460140781],[106.81213854906713,-6.215271656365076],[106.81210691069901,-6.2152995721782816],[106.81225424908752,-6.215982262432632],[106.81333787066666,-6.2158348636481975],[106.81358144496647,-6.216337974771932],[106.81360479799787,-6.2163681210133035],[106.81365831445373,-6.216408422779693],[106.81367004908327,-6.21642037289773],[106.81340877438674,-6.216633534086171]],"type":"LineString"},"id":5},{"type":"Feature","properties":{"name":"START: Taman Sentra BRI"},"geometry":{"type":"Point","coordinates":[106.81353811998463,-6.216808633165073]}},{"type":"Feature","properties":{"name":"Jakarta Notebook","marker-color":"#ff0000"},"geometry":{"type":"Point","coordinates":[106.81176497093998,-6.208786456096718]}},{"type":"Feature","properties":{"name":"TPU Karet Bivak","stroke":"#555555","stroke-width":2,"fill":"#555555","fill-opacity":0.5,"note":"TPU Karet Bivak merupakan tempat peristirahatan akhir bagi banyak tokoh bangsa dari berbagai bidang. Memiliki luas 16,2 hektare."},"geometry":{"type":"Polygon","coordinates":[[[106.8154905090048,-6.203305292143924],[106.81550079169722,-6.202681720213917],[106.81533626861682,-6.201996812490492],[106.81523344169108,-6.201731027163589],[106.81509976668798,-6.201639024520148],[106.81490439553016,-6.20156746689608],[106.81385556089305,-6.201444796663253],[106.8134545358838,-6.201455019183712],[106.81156252045969,-6.201649247036855],[106.81145969353395,-6.2020479250374905],[106.81153167238102,-6.202201262650149],[106.81174760892497,-6.20230348770076],[106.81192241469785,-6.202395490229648],[106.81200467623745,-6.202773722676724],[106.81189156662055,-6.203366627048794],[106.81191213200543,-6.203530186758087],[106.8119841108525,-6.203683523939489],[106.81199439354492,-6.203816416126216],[106.81204580700847,-6.203949308280755],[106.81223089547376,-6.204082200401714],[106.81248796278618,-6.204235537422647],[106.81297124933502,-6.204358207007417],[106.81349566665489,-6.204409319325464],[106.81412291089794,-6.204419541788468],[106.81477072052718,-6.204358207007417],[106.81569616285498,-6.204317317149375],[106.8154905090048,-6.203305292143924]]]}}]};
+            // Data GeoJSON lengkap
+            const geojsonData = {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"Pintu belakang TPU Karet Bivak","marker-color":"#ff0000"},"geometry":{"type":"Point","coordinates":[106.813687,-6.20465]}},{"type":"Feature","properties":{"name":"Rute 3","stroke":"#808000","stroke-width":5},"geometry":{"type":"LineString","coordinates":[[106.815989,-6.200866],[106.81516,-6.200669],[106.815189,-6.201403],[106.815307,-6.201449],[106.815404,-6.201531],[106.815465,-6.201641],[106.815999,-6.203356],[106.815773,-6.203378],[106.815561,-6.203375]]}},{"type":"Feature","properties":{"name":"Gerbang TPU Karet Bivak","marker-color":"#ff0000"},"geometry":{"type":"Point","coordinates":[106.815669,-6.203325]}},{"type":"Feature","properties":{"name":"FINISH: Stasiun Karet"},"geometry":{"type":"Point","coordinates":[106.816026,-6.200878]}},{"type":"Feature","properties":{"name":"Rute 2","stroke":"#b88e65","stroke-width":5},"geometry":{"type":"LineString","coordinates":[[106.813702,-6.204638],[106.813805,-6.205341],[106.81363,-6.205367],[106.813738,-6.206453],[106.812156,-6.206538],[106.81215,-6.206786],[106.811999,-6.206782],[106.811852,-6.206801],[106.811719,-6.206833],[106.81159,-6.206861],[106.811455,-6.206935],[106.811597,-6.20718],[106.811888,-6.207555],[106.812000,-6.207673],[106.812054,-6.207826],[106.81209,-6.207919],[106.812121,-6.208186],[106.812658,-6.20874],[106.812383,-6.208797],[106.812039,-6.208974],[106.811854,-6.208704]]}},{"type":"Feature","properties":{"name":"Rute 1","stroke":"#ffd700","stroke-width":5},"geometry":{"type":"LineString","coordinates":[[106.811846,-6.208722],[106.811903,-6.208787],[106.812029,-6.208984],[106.812096,-6.209147],[106.812267,-6.209681],[106.812302,-6.209877],[106.812332,-6.210125],[106.812331,-6.21057],[106.812264,-6.211546],[106.812245,-6.21192],[106.811124,-6.212038],[106.811207,-6.213286],[106.811252,-6.213486],[106.811628,-6.214192],[106.8118,-6.214465],[106.812013,-6.214925],[106.812169,-6.215214],[106.812159,-6.215244],[106.812138,-6.215271],[106.812106,-6.215299],[106.812254,-6.215982],[106.813337,-6.215834],[106.813581,-6.216337],[106.813604,-6.216368],[106.813658,-6.216408],[106.81367,-6.21642],[106.813408,-6.216633]]}},{"type":"Feature","properties":{"name":"START: Taman Sentra BRI"},"geometry":{"type":"Point","coordinates":[106.813538,-6.216808]}},{"type":"Feature","properties":{"name":"Jakarta Notebook","marker-color":"#ff0000"},"geometry":{"type":"Point","coordinates":[106.811764,-6.208786]}},{"type":"Feature","properties":{"name":"TPU Karet Bivak","stroke":"#555555","stroke-width":2,"fill":"#555555","fill-opacity":0.5,"note":"TPU Karet Bivak merupakan tempat peristirahatan akhir bagi banyak tokoh bangsa dari berbagai bidang. Memiliki luas 16,2 hektare."},"geometry":{"type":"Polygon","coordinates":[[[106.81549,-6.203305],[106.8155,-6.202681],[106.815336,-6.201996],[106.815233,-6.201731],[106.815099,-6.201639],[106.814904,-6.201567],[106.813855,-6.201444],[106.813454,-6.201455],[106.811562,-6.201649],[106.811459,-6.202047],[106.811531,-6.202201],[106.811747,-6.202303],[106.811922,-6.202395],[106.812004,-6.202773],[106.811891,-6.203366],[106.811912,-6.20353],[106.811984,-6.203683],[106.811994,-6.203816],[106.812045,-6.203949],[106.81223,-6.204082],[106.812487,-6.204235],[106.812971,-6.204358],[106.813495,-6.204409],[106.814122,-6.204419],[106.81477,-6.204358],[106.815696,-6.204317],[106.81549,-6.203305]]]}}]};
 
             setTimeout(() => { document.getElementById('splash-screen').classList.add('hidden'); }, 3000);
 
@@ -127,30 +136,46 @@
             });
             new L.Control.CustomButtons({ position: 'topleft' }).addTo(map);
 
-            let userMarker, watcherId, lastPos, totalPhysicalDist = 0, maxOnRouteDist = 0;
+            let userMarker, watcherId, lastPos, totalActualDist = 0, maxOnRouteDist = 0, timerInterval, elapsedSeconds = 0;
             const statsUi = {
                 container: document.getElementById('stats-container'),
                 traveled: document.getElementById('distance-traveled'),
                 remaining: document.getElementById('distance-remaining'),
-                physical: document.getElementById('physical-distance'),
-                progress: document.getElementById('progress-bar')
+                actual: document.getElementById('actual-distance'),
+                progress: document.getElementById('progress-bar'),
+                time: document.getElementById('elapsed-time'),
+                shareBtn: document.getElementById('share-button')
             };
             const fullRoutePolyline = L.polyline(routeLayers.getLayers().flatMap(l => l.getLatLngs()));
 
             map.on('locationfound', e => {
                 statsUi.container.classList.add('visible');
+                if (!watcherId) {
+                    startTimer();
+                    watcherId = navigator.geolocation.watchPosition(
+                        pos => updateProgress(L.latLng(pos.coords.latitude, pos.coords.longitude)), 
+                        handleLocationError, { enableHighAccuracy: true }
+                    );
+                }
                 updateProgress(e.latlng);
-                if (!watcherId) watcherId = navigator.geolocation.watchPosition(
-                    pos => updateProgress(L.latLng(pos.coords.latitude, pos.coords.longitude)), 
-                    handleLocationError, { enableHighAccuracy: true }
-                );
             });
+            
+            function startTimer() {
+                if(timerInterval) clearInterval(timerInterval);
+                timerInterval = setInterval(() => {
+                    elapsedSeconds++;
+                    const h = Math.floor(elapsedSeconds / 3600).toString().padStart(2, '0');
+                    const m = Math.floor((elapsedSeconds % 3600) / 60).toString().padStart(2, '0');
+                    const s = (elapsedSeconds % 60).toString().padStart(2, '0');
+                    statsUi.time.textContent = `${h}:${m}:${s}`;
+                }, 1000);
+            }
 
             function updateProgress(userLatlng) {
                 if (!userMarker) userMarker = L.marker(userLatlng).addTo(map).bindPopup('Posisi Anda');
                 else userMarker.setLatLng(userLatlng);
 
-                if (lastPos) totalPhysicalDist += userLatlng.distanceTo(lastPos);
+                if (lastPos) totalActualDist += userLatlng.distanceTo(lastPos);
                 lastPos = userLatlng;
                 
                 const closestPoint = L.GeometryUtil.closest(map, fullRoutePolyline, userLatlng);
@@ -170,9 +195,29 @@
                 const onRouteDistKm = maxOnRouteDist / 1000;
                 statsUi.traveled.textContent = `${onRouteDistKm.toFixed(2)} km`;
                 statsUi.remaining.textContent = `${Math.max(0, totalRouteDistance - onRouteDistKm).toFixed(2)} km`;
-                statsUi.physical.textContent = `${(totalPhysicalDist / 1000).toFixed(2)} km`;
+                statsUi.actual.textContent = `${(totalActualDist / 1000).toFixed(2)} km`;
                 statsUi.progress.style.width = `${Math.min(100, (onRouteDistKm / totalRouteDistance) * 100)}%`;
             }
+
+            statsUi.shareBtn.addEventListener('click', () => {
+                const date = new Date().toLocaleDateString('id-ID');
+                const time = statsUi.time.textContent;
+                const distOnRoute = statsUi.traveled.textContent;
+                const distActual = statsUi.actual.textContent;
+
+                const message = `*Pencapaian PAMI Thursday Walk!* 🚶‍♂️\n\n` +
+                              `------------------------------------\n` +
+                              `*Tanggal:* ${date}\n` +
+                              `*Waktu Tempuh:* ${time}\n` +
+                              `*Jarak di Rute:* ${distOnRoute}\n` +
+                              `*Total Aktual:* ${distActual}\n` +
+                              `------------------------------------\n\n` +
+                              `#PAMIWalk #JakartaWalkingTour\n\n` +
+                              `_[Data untuk diolah: ${date}|${time}|${distOnRoute.replace(' km','')}|${distActual.replace(' km','')}]_`;
+
+                const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+                window.open(whatsappUrl, '_blank');
+            });
             
             function handleLocationError(e) { alert(`Error ${e.code}: ${e.message}`); }
             map.on('locationerror', handleLocationError);
