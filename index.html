@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>PAMI Thursday Walk - Karet Bivak</title>
+    <title>PAMI Thursday Walk</title>
     
     <!-- Library Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -35,6 +35,8 @@
         #map { flex-grow: 1; width: 100vw; z-index: 1; }
         .dark-mode .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9); }
         .leaflet-tooltip { background-color: var(--surface-color) !important; color: var(--text-color) !important; border-color: var(--accent-color) !important; }
+        .leaflet-popup-content-wrapper { background-color: var(--surface-color) !important; color: var(--text-color) !important; }
+        .leaflet-popup-tip { background-color: var(--surface-color) !important; }
 
         .leaflet-bar button { background-color: var(--surface-color) !important; width: 36px; height: 36px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #ddd; }
         .leaflet-bar button:hover { background-color: #f4f4f4 !important; }
@@ -49,12 +51,6 @@
         #progress-bar-container { width: 100%; background-color: #e0e0e0; border-radius: 10px; height: 10px; overflow: hidden; }
         .dark-mode #progress-bar-container { background-color: #555; }
         #progress-bar { width: 0%; height: 100%; background-color: var(--accent-color); border-radius: 10px; transition: width 0.5s linear; }
-
-        /* Gaya Ikon Kustom Start & Finish */
-        .custom-div-icon svg { width: 40px; height: 40px; }
-        .start-flag path:nth-child(1) { fill: #333; }
-        .start-flag path:nth-child(2) { fill: #fff; }
-        .finish-flag path { fill: #333; }
     </style>
 </head>
 <body>
@@ -62,7 +58,7 @@
     <div id="header">
         <h1>PAMI Thursday Walk</h1>
         <p>11 September 2025 - Start at 7:30am</p>
-        <p>Total route (est): <span id="totalRouteLength">Menghitung...</span> km.</p>
+        <p>Total route (est): <span id="totalRouteLength">0.00</span> km.</p>
     </div>
     <div id="map"></div>
     <div id="stats-container">
@@ -83,21 +79,8 @@
             const map = L.map('map');
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
 
-            const startIcon = L.divIcon({
-                className: 'custom-div-icon start-flag',
-                html: `<svg viewBox="0 0 24 24"><path d="M5 18H3V6h2V4h10v2h-4v2h4v2h-4v2h4v2h-4v2h4v2H5z"/><path d="M7 16h2v-2H7zm0-4h2v-2H7zm0-4h2V6H7zm4 8h2v-2h-2zm0-4h2v-2h-2z"/></svg>`,
-                iconSize: [40, 40], iconAnchor: [10, 38]
-            });
-
-            const finishIcon = L.divIcon({
-                className: 'custom-div-icon finish-flag',
-                html: `<svg viewBox="0 0 24 24"><path d="M3 6h5v2H3z m5 2h2V6H8z m2 2H8V8h2z m2-2h-2V6h2z m2 2h-2V8h2z m-2-2h-2V4h2z m-2 14h2v-2h-2z m-2 2h2v-2h-2z m2-2h2v-2h-2z m2 2h2v-2h-2z m-4 0h2v-2h-2z m2-4h-2v2h2z m-2-2h-2v2h2z m0 2H8v2h2z m-2-2H6v2h2z m-2-2H4v2h2z m2-2h2V8h-2z m2-2h2V6h-2z m-7 8H3v2h2z m0-2H3v2h2z"/></svg>`,
-                iconSize: [40, 40], iconAnchor: [10, 38]
-            });
-
-            function calculateDistance(coords){ return coords.reduce((total, p, i) => total + (i > 0 ? map.distance(p, coords[i-1]) : 0), 0) / 1000; }
+            function calculateDistance(coords) { return coords.reduce((total, p, i) => total + (i > 0 ? map.distance(p, coords[i - 1]) : 0), 0) / 1000; }
             
-            let totalRouteDistance = 0;
             const routeLayers = L.featureGroup();
 
             const geoJsonLayer = L.geoJSON(geojsonData, {
@@ -107,7 +90,8 @@
                     if (p.name) {
                         let tooltipContent = p.name;
                         if (f.geometry.type === 'LineString') {
-                            tooltipContent += `<br><b>Jarak: ${calculateDistance(f.geometry.coordinates.map(c => [c[1], c[0]]))} km</b>`;
+                            const distance = calculateDistance(l.getLatLngs());
+                            tooltipContent += `<br><b>Jarak: ${distance.toFixed(2)} km</b>`;
                             routeLayers.addLayer(l);
                         }
                         l.bindTooltip(tooltipContent);
@@ -118,20 +102,23 @@
                 },
                 pointToLayer: (f, l) => {
                     const p = f.properties;
-                    if (p.name?.startsWith('START')) return L.marker(l, { icon: startIcon });
-                    if (p.name?.startsWith('FINISH')) return L.marker(l, { icon: finishIcon });
-                    if (p['marker-color']) return L.marker(l, { icon: L.divIcon({ className: 'c-div-icon', html: `<div style="background-color:${p['marker-color']};width:15px;height:15px;border-radius:50%;"></div>` }) });
+                    if (p.name?.startsWith('START') || p.name?.startsWith('FINISH')) {
+                        return L.marker(l); // Ikon dikembalikan ke pin biru standar
+                    }
+                    if (p['marker-color']) {
+                        return L.marker(l, { icon: L.divIcon({ className: 'c-div-icon', html: `<div style="background-color:${p['marker-color']};width:15px;height:15px;border-radius:50%;border:2px solid white;"></div>` }) });
+                    }
                     return L.marker(l);
                 }
             }).addTo(map);
             
-            totalRouteDistance = routeLayers.getLayers().reduce((total, layer) => total + calculateDistance(layer.getLatLngs()), 0);
+            const totalRouteDistance = routeLayers.getLayers().reduce((total, layer) => total + calculateDistance(layer.getLatLngs()), 0);
             document.getElementById('totalRouteLength').textContent = totalRouteDistance.toFixed(2);
             document.getElementById('distance-remaining').textContent = `${totalRouteDistance.toFixed(2)} km`;
 
             let initialBounds = routeLayers.getBounds().pad(0.15);
             map.fitBounds(initialBounds);
-            setTimeout(() => { routeLayers.snakeIn(); }, 1000);
+            setTimeout(() => { routeLayers.snakeIn({ snakingSpeed: 120 }); }, 1000); // Animasi sedikit dilambatkan
 
             L.Control.CustomButtons = L.Control.extend({
                 onAdd: function() {
@@ -165,13 +152,13 @@
             const progressBarEl = document.getElementById('progress-bar');
             const fullRoutePolyline = L.polyline(routeLayers.getLayers().flatMap(layer => layer.getLatLngs()));
 
-            map.on('locationfound', () => {
+            map.on('locationfound', (e) => {
                 statsContainer.classList.add('visible');
-                if (!locationWatcherId) locationWatcherId = navigator.geolocation.watchPosition(updateProgress, handleLocationError, { enableHighAccuracy: true });
+                updateProgress(e.latlng); // Update progress on first find
+                if (!locationWatcherId) locationWatcherId = navigator.geolocation.watchPosition(pos => updateProgress(L.latLng(pos.coords.latitude, pos.coords.longitude)), handleLocationError, { enableHighAccuracy: true });
             });
 
-            function updateProgress(pos) {
-                const userLatlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
+            function updateProgress(userLatlng) {
                 if (!userMarker) userMarker = L.marker(userLatlng).addTo(map).bindPopup('Posisi Anda');
                 else userMarker.setLatLng(userLatlng);
 
