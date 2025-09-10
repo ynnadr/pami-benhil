@@ -38,35 +38,22 @@
         .dark-mode .leaflet-bar button { background-color: var(--surface-color) !important; border-bottom-color: #4a6fa5; }
         .dark-mode .leaflet-bar button:hover { background-color: #3e5a81 !important; }
         .leaflet-bar button svg { color: var(--text-color); width: 20px; height: 20px; }
-
-        /* Perbaikan untuk Tombol Start */
-        .leaflet-control-start button {
-            background-color: #28a745 !important; 
-            color: white !important; 
-            font-weight: bold; 
-            font-size: 1.1em;
-            width: auto; 
-            height: 44px; 
-            padding: 0 20px; 
-            border-radius: 8px; 
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            border: none;
-        }
-        .leaflet-control-start button:hover { 
-            background-color: #218838 !important; 
-        }
-
-        #stats-container { position: fixed; bottom: 0; left: 0; right: 0; background-color: var(--surface-color); padding: 10px 15px; box-shadow: 0 -2px 10px var(--shadow-color); z-index: 1000; transform: translateY(100%); transition: transform 0.4s ease-in-out; }
-        #stats-container.visible { transform: translateY(0); }
+        
+        #stats-container { position: fixed; bottom: 0; left: 0; right: 0; background-color: var(--surface-color); padding: 15px; box-shadow: 0 -2px 10px var(--shadow-color); z-index: 1000; }
         .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 15px; font-size: 0.9em; margin-bottom: 8px; }
         .stats-grid div span { font-weight: bold; }
         #total-actual-distance { text-align: right; color: var(--accent-color); }
         #progress-bar-container { grid-column: 1 / -1; background-color: #e0e0e0; border-radius: 10px; height: 10px; overflow: hidden; margin-top: 4px; }
         .dark-mode #progress-bar-container { background-color: #555; }
         #progress-bar { width: 0%; height: 100%; background-color: var(--accent-color); border-radius: 10px; transition: width 0.5s linear; }
-
+        
+        #start-button { width: 100%; padding: 12px; border: none; background-color: #28a745; color: white; font-weight: bold; font-size: 1.2em; border-radius: 8px; cursor: pointer; }
+        #start-button:hover { background-color: #218838; }
         #share-button { display: flex; align-items: center; justify-content: center; width: 100%; padding: 10px; margin-top: 10px; border: none; background-color: #25D366; color: white; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 1em; }
         #share-button svg { width: 20px; height: 20px; margin-right: 8px; }
+
+        /* Sembunyikan elemen statistik di awal */
+        .stats-grid, #share-button { display: none; }
     </style>
 </head>
 <body>
@@ -78,6 +65,10 @@
     </div>
     <div id="map"></div>
     <div id="stats-container">
+        <!-- Tombol Start ada di sini, terlihat di awal -->
+        <button id="start-button">MULAI JELAJAH</button>
+
+        <!-- Elemen ini baru akan terlihat setelah start -->
         <div class="stats-grid">
             <div>Waktu Tempuh: <span id="elapsed-time">00:00:00</span></div>
             <div id="total-actual-distance">Total Aktual: <span id="actual-distance">0.00 km</span></div>
@@ -156,37 +147,27 @@
             let userMarker, watcherId, lastPos, totalActualDist = 0, maxOnRouteDist = 0, timerInterval, elapsedSeconds = 0, activityFinished = false;
             const statsUi = {
                 container: document.getElementById('stats-container'),
+                statsGrid: document.querySelector('.stats-grid'),
+                shareButton: document.getElementById('share-button'),
+                startButton: document.getElementById('start-button'),
                 traveled: document.getElementById('distance-traveled'),
                 remaining: document.getElementById('distance-remaining'),
                 actual: document.getElementById('actual-distance'),
                 progress: document.getElementById('progress-bar'),
-                time: document.getElementById('elapsed-time'),
-                shareBtn: document.getElementById('share-button')
+                time: document.getElementById('elapsed-time')
             };
             const fullRoutePolyline = L.polyline(routeLayers.getLayers().flatMap(l => l.getLatLngs()));
             
-            let startControl;
-            function createStartControl() {
-                L.Control.Start = L.Control.extend({
-                    onAdd: function() {
-                        const c = L.DomUtil.create('div', 'leaflet-control-start leaflet-control');
-                        const btn = L.DomUtil.create('button', '', c);
-                        btn.innerHTML = "MULAI JELAJAH";
-                        L.DomEvent.on(btn, 'click', () => {
-                            map.locate({setView: true, maxZoom: 18, enableHighAccuracy: true});
-                            if(startControl) map.removeControl(startControl);
-                        });
-                        return c;
-                    }
-                });
-                startControl = new L.Control.Start({ position: 'bottomleft' });
-                map.addControl(startControl);
-            }
-            createStartControl();
+            statsUi.startButton.addEventListener('click', () => {
+                map.locate({setView: true, maxZoom: 18, enableHighAccuracy: true});
+            });
 
             map.on('locationfound', e => {
                 if (!watcherId) {
-                    statsUi.container.classList.add('visible');
+                    statsUi.startButton.style.display = 'none';
+                    statsUi.statsGrid.style.display = 'grid';
+                    statsUi.shareButton.style.display = 'flex';
+                    
                     map.panBy([0, -statsUi.container.offsetHeight / 2], { animate: true });
                     startTimer();
                     watcherId = navigator.geolocation.watchPosition(
@@ -240,7 +221,10 @@
                     if(watcherId) navigator.geolocation.clearWatch(watcherId);
                     if(timerInterval) clearInterval(timerInterval);
                     alert("Selamat! Anda telah mencapai titik finish.");
-                    createStartControl();
+                    
+                    statsUi.startButton.style.display = 'block';
+                    statsUi.statsGrid.style.display = 'none';
+                    statsUi.shareButton.style.display = 'none';
                 }
             }
 
